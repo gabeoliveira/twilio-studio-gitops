@@ -24,6 +24,10 @@ on:
         description: "Promotion message"
         required: true
         default: "Promote to prod"
+      replace_function_urls:
+        description: "Should function URLs be rewritten to match the target environment?"
+        required: true
+        default: "true"
 
 jobs:
   promote:
@@ -51,20 +55,26 @@ jobs:
           jq '.definition' .studio/${{ github.event.inputs.flow_name }}/from-full.json > \
             .studio/${{ github.event.inputs.flow_name }}/from-definition.json
 
-      - name: Rewrite Function URLs for Target Env
+      - name: Rewrite Function URLs (if enabled)
+        if: ${{ github.event.inputs.replace_function_urls == 'true' }}
         run: |
           FROM_ENV="${{ github.event.inputs.from_env }}"
           TO_ENV="${{ github.event.inputs.to_env }}"
+          FLOW_PATH=".studio/${{ github.event.inputs.flow_name }}"
 
+          echo "🔄 Rewriting Function URLs from '${FROM_ENV}' to '${TO_ENV}'..."
           sed -E "s#https://([a-zA-Z0-9-]+)-${FROM_ENV}\.twil\.io#https://\1-${TO_ENV}.twil.io#g" \
-            .studio/${{ github.event.inputs.flow_name }}/from-definition.json \
-            > .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json
+            "$FLOW_PATH/from-definition.json" > "$FLOW_PATH/promoted-definition.json"
 
-      - name: Push changes back to repo
+      - name: Copy definition without rewriting (if URL replacement is off)
+        if: ${{ github.event.inputs.replace_function_urls == 'false' }}
         run: |
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          cp .studio/${{ github.event.inputs.flow_name }}/from-definition.json \
+            .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json
+
+      - name: Set up Git credentials
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
 
       - name: Commit Definition (optional for audit)
         run: |
@@ -81,14 +91,13 @@ jobs:
 
           DEFINITION=$(jq -c . .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json)
 
-          RESPONSE=$(curl -s -w "%{http_code}" -o response.json -X POST \
+          # Make API call and save both body and status separately
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" -X POST \
             "https://studio.twilio.com/v2/Flows/${{ github.event.inputs.to_flow_sid }}" \
             -u "$ACCOUNT_SID:$AUTH_TOKEN" \
             --data-urlencode "Definition=$DEFINITION" \
             --data-urlencode "Status=published" \
             --data-urlencode "CommitMessage=${{ github.event.inputs.commit_message }}")
-
-          HTTP_STATUS=$(tail -c 3 <<< "$RESPONSE")
 
           if [[ "$HTTP_STATUS" != "200" ]]; then
             echo "❌ Flow promotion failed (HTTP $HTTP_STATUS)"
