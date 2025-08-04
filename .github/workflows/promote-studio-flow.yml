@@ -40,8 +40,17 @@ on:
 jobs:
   promote:
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.require_approval == 'false' }}
+    environment: ${{ github.event.inputs.require_approval == 'true' && 'production' || '' }}
+
+    env:
+      ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+      AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+
     steps:
+      - name: Require approval before proceeding (optional)
+        if: ${{ github.event.inputs.require_approval == 'true' }}
+        run: echo "✅ Manual approval granted for '${{ github.event.inputs.flow_name }}'. Proceeding with promotion..."
+
       - name: Checkout repo
         uses: actions/checkout@v3
 
@@ -90,9 +99,6 @@ jobs:
           git push || echo "Nothing to push"
 
       - name: Promote to Target Flow
-        env:
-          ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
         run: |
           echo "Promoting flow '${{ github.event.inputs.flow_name }}' to '${{ github.event.inputs.to_env }}'..."
 
@@ -113,11 +119,3 @@ jobs:
           fi
 
           echo "✅ Successfully promoted '${{ github.event.inputs.flow_name }}' to '${{ github.event.inputs.to_env }}'."
-
-  promote-with-approval:
-    runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.require_approval == 'true' }}
-    environment:
-      name: production
-    steps:
-      - name: Trigger actual promotion after
