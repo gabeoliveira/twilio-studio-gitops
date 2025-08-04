@@ -1,0 +1,96 @@
+name: Scheduled Flow Promotions
+
+on:
+  schedule:
+    - cron: "0 6 * * 1-5" # Weekdays at 6:00 AM UTC
+
+jobs:
+  load-config:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+      - id: set-matrix
+        run: |
+          MATRIX=$(jq -c '.' .studio/flows-config.json)
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+  promote:
+    needs: load-config
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.load-config.outputs.matrix) }}
+
+    env:
+      ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+      AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - run: sudo apt-get install jq
+
+      - name: Fetch flow definition
+        run: |
+          mkdir -p .studio/${{ matrix.flow_name }}
+          curl -s -f -u "$ACCOUNT_SID:$AUTH_TOKEN" \
+            "https://studio.twilio.com/v2/Flows/${{ matrix.from_sid }}" \
+            -o .studio/${{ matrix.flow_name }}/from-full.json
+
+          jq '.definition' .studio/${{ matrix.flow_name }}/from-full.json \
+            > .studio/${{ matrix.flow_name }}/from-definition.json
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if ! cmp -s .studio/${{ matrix.flow_name }}/from-definition.json .studio/${{ matrix.flow_name }}/promoted-definition.json; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "📌 Flow '${{ matrix.flow_name }}' has changed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "✅ No change in '${{ matrix.flow_name }}'" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Prepare promoted definition
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          if [[ "${{ matrix.replace_function_urls }}" == "true" ]]; then
+            sed -E "s#https://([a-zA-Z0-9-]+)-${{ matrix.from_env }}\.twil\.io#https://\1-${{ matrix.to_env }}.twil.io#g" \
+              .studio/${{ matrix.flow_name }}/from-definition.json \
+              > .studio/${{ matrix.flow_name }}/promoted-definition.json
+          else
+            cp .studio/${{ matrix.flow_name }}/from-definition.json \
+               .studio/${{ matrix.flow_name }}/promoted-definition.json
+          fi
+
+      - name: Promote to production
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          DEFINITION=$(jq -c . .studio/${{ matrix.flow_name }}/promoted-definition.json)
+
+          STATUS=$(curl -s -o response.json -w "%{http_code}" -X POST \
+            "https://studio.twilio.com/v2/Flows/${{ matrix.to_sid }}" \
+            -u "$ACCOUNT_SID:$AUTH_TOKEN" \
+            --data-urlencode "Definition=$DEFINITION" \
+            --data-urlencode "Status=published" \
+            --data-urlencode "CommitMessage=Auto-promotion of ${{ matrix.flow_name }}")
+
+          if [[ "$STATUS" != "200" ]]; then
+            echo "❌ Promotion failed for '${{ matrix.flow_name }}' (HTTP $STATUS)"
+            cat response.json
+            exit 1
+          else
+            echo "✅ Successfully promoted '${{ matrix.flow_name }}'" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Commit updated definition
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@users.noreply.github.com'
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+
+          git add .studio/${{ matrix.flow_name }}/promoted-definition.json
+          git commit -m "Auto-promotion of ${{ matrix.flow_name }}" || echo "Nothing to commit"
+          git push || echo "Nothing to push"

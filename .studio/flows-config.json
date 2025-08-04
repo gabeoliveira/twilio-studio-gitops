@@ -1,0 +1,18 @@
+[
+  {
+    "flow_name": "order-bot",
+    "from_env": "stage",
+    "to_env": "prod",
+    "from_sid": "FWxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "to_sid": "FWyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+    "replace_function_urls": true
+  },
+  {
+    "flow_name": "support-bot",
+    "from_env": "stage",
+    "to_env": "prod",
+    "from_sid": "FWaaaaaa...",
+    "to_sid": "FWbbbbbb...",
+    "replace_function_urls": false
+  }
+]
