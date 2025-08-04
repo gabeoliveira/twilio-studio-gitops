@@ -58,7 +58,7 @@ jobs:
 
       - name: Manual approval (optional)
         if: github.event.inputs.require_approval == 'true'
-        uses: stemn/manual-approval@v1
+        uses: stemn/manual-approval@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           approval-actors: ${{ github.event.inputs.approvers != '' && github.event.inputs.approvers || github.actor }}
