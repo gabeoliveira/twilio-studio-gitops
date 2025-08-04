@@ -42,7 +42,9 @@ jobs:
 
       - name: Fetch Studio Flow from Source
         run: |
-          curl -s -u "$ACCOUNT_SID:$AUTH_TOKEN" \
+          mkdir -p .studio/${{ github.event.inputs.flow_name }}
+
+          curl -s -f -u "$ACCOUNT_SID:$AUTH_TOKEN" \
             "https://studio.twilio.com/v2/Flows/${{ github.event.inputs.from_flow_sid }}" \
             -o .studio/${{ github.event.inputs.flow_name }}/from-full.json
 
