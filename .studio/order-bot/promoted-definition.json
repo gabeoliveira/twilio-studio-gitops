@@ -132,7 +132,7 @@
           }
         ],
         "service_sid": "ZSbe56a6c2c8e5f6b32c8ead795bc85908",
-        "url": "https://mercado-pago-serverless-8115-prod.twil.io/create-payment"
+        "url": "https://mercado-pago-serverless-8115-dev.twil.io/create-payment"
       },
       "transitions": [
         {
