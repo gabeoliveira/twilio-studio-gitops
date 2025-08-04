@@ -61,7 +61,7 @@ jobs:
         uses: trstringer/manual-approval@v1
         with:
           secret: ${{ secrets.GITHUB_TOKEN }}
-          approvers: ${{ github.event.inputs.approvers || github.actor }}
+          approvers: ${{ github.event.inputs.approvers != '' && github.event.inputs.approvers || github.actor }}
           minimum-approvals: 1
           issue-title: "Approve promotion of '${{ github.event.inputs.flow_name }}'"
           issue-body: |
