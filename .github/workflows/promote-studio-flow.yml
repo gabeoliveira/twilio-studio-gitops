@@ -1,5 +1,9 @@
 name: Promote Twilio Studio Flow
 
+permissions:
+  issues: write
+  contents: read
+
 on:
   workflow_dispatch:
     inputs:
