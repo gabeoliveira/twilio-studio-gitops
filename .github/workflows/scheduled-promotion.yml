@@ -31,6 +31,22 @@ jobs:
       - uses: actions/checkout@v3
       - run: sudo apt-get install jq
 
+      - name: Require manual approval (optional)
+        if: steps.check_changes.outputs.changed == 'true' && matrix.require_approval == true
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: ${{ join(matrix.approvers || github.actor, ',') }}
+          minimum-approvals: 1
+          issue-title: "Approve promotion of '${{ matrix.flow_name }}' to '${{ matrix.to_env }}'"
+          issue-body: |
+            This is a scheduled promotion for **${{ matrix.flow_name }}**.
+            Source: `${{ matrix.from_env }}`
+            Target: `${{ matrix.to_env }}`
+            Triggered by: `${{ github.actor }}`
+
+            Comment **/approve** to proceed, or **/deny** to cancel this promotion.
+
       - name: Fetch flow definition
         run: |
           mkdir -p .studio/${{ matrix.flow_name }}

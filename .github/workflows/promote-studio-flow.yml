@@ -28,6 +28,14 @@ on:
         description: "Should function URLs be rewritten to match the target environment?"
         required: true
         default: "true"
+      require_approval:
+        description: "Require manual approval before promoting?"
+        required: true
+        default: "false"
+      approvers:
+        description: "Comma-separated GitHub usernames allowed to approve this promotion"
+        required: false
+        default: ""
 
 jobs:
   promote:
@@ -43,6 +51,21 @@ jobs:
 
       - name: Install jq
         run: sudo apt-get install jq
+
+      - name: Require manual approval (optional)
+        if: github.event.inputs.require_approval == 'true'
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: ${{ github.event.inputs.approvers || github.actor }}
+          minimum-approvals: 1
+          issue-title: "Approve promotion of '${{ github.event.inputs.flow_name }}'"
+          issue-body: |
+            Promotion requested for **${{ github.event.inputs.flow_name }}**
+            Environment: `${{ github.event.inputs.from_env }} ➡️ ${{ github.event.inputs.to_env }}`
+            Triggered by: `${{ github.actor}`
+
+            Comment `/approve` to proceed, `/deny` to cancel.
 
       - name: Fetch Studio Flow from Source
         run: |
