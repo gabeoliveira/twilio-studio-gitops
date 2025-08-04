@@ -60,6 +60,12 @@ jobs:
             .studio/${{ github.event.inputs.flow_name }}/from-definition.json \
             > .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json
 
+      - name: Push changes back to repo
+        run: |
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Commit Definition (optional for audit)
         run: |
           git config --global user.name 'github-actions'
