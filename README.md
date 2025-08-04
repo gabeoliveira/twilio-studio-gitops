@@ -18,6 +18,6 @@ This repository demonstrates a GitOps approach for managing [Twilio Studio](http
 ## How to Use
 
 1. From the **Actions** tab in GitHub, run the **Promote Twilio Studio Flow** workflow.
-2. Provide the inputs: `flow_name`, `from_env`, `to_env`, `from_flow_sid`, `to_flow_sid`, and `commit_message`.
-3. The workflow fetches the flow definition from the source environment, rewrites environment-specific URLs, commits the promoted definition, and publishes it to the target environment.
+2. Provide the inputs: `flow_name`, `from_env`, `to_env`, `from_flow_sid`, `to_flow_sid`, `commit_message`, and `replace_function_urls` (defaults to `true`).
+3. If `replace_function_urls` is enabled, the workflow rewrites environment-specific Function URLs, commits the promoted definition, and publishes it to the target environment; otherwise it promotes the definition as-is.
 
