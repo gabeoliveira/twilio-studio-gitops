@@ -1,8 +1,8 @@
 name: Promote Twilio Studio Flow
 
 permissions:
+  contents: write
   issues: write
-  contents: read
 
 on:
   workflow_dispatch:
@@ -36,35 +36,17 @@ on:
         description: "Require manual approval before promoting?"
         required: true
         default: "false"
-      approvers:
-        description: "Comma-separated GitHub usernames allowed to approve this promotion"
-        required: false
-        default: ""
 
 jobs:
   promote:
     runs-on: ubuntu-latest
-
-    env:
-      ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-      AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-
+    if: ${{ github.event.inputs.require_approval == 'false' }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
       - name: Install jq
         run: sudo apt-get install jq
-
-      - name: Manual approval (optional)
-        if: github.event.inputs.require_approval == 'true'
-        uses: stemn/manual-approval@main
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          approval-actors: ${{ github.event.inputs.approvers != '' && github.event.inputs.approvers || github.actor }}
-          approval-message: |
-            Approve promotion of **${{ github.event.inputs.flow_name }}** to **${{ github.event.inputs.to_env }}**.
-            Comment `/approve` to continue, `/deny` to cancel.
 
       - name: Fetch Studio Flow from Source
         run: |
@@ -108,12 +90,14 @@ jobs:
           git push || echo "Nothing to push"
 
       - name: Promote to Target Flow
+        env:
+          ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
         run: |
           echo "Promoting flow '${{ github.event.inputs.flow_name }}' to '${{ github.event.inputs.to_env }}'..."
 
           DEFINITION=$(jq -c . .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json)
 
-          # Make API call and save both body and status separately
           HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" -X POST \
             "https://studio.twilio.com/v2/Flows/${{ github.event.inputs.to_flow_sid }}" \
             -u "$ACCOUNT_SID:$AUTH_TOKEN" \
@@ -129,3 +113,11 @@ jobs:
           fi
 
           echo "✅ Successfully promoted '${{ github.event.inputs.flow_name }}' to '${{ github.event.inputs.to_env }}'."
+
+  promote-with-approval:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.require_approval == 'true' }}
+    environment:
+      name: production
+    steps:
+      - name: Trigger actual promotion after
