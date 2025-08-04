@@ -1,0 +1,200 @@
+{
+  "description": "Test Flow - STAGE",
+  "flags": {
+    "allow_concurrent_calls": true
+  },
+  "initial_state": "Trigger",
+  "states": [
+    {
+      "name": "Trigger",
+      "properties": {
+        "offset": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "transitions": [
+        {
+          "event": "incomingMessage"
+        },
+        {
+          "event": "incomingCall",
+          "next": "boasvindas"
+        },
+        {
+          "event": "incomingConversationMessage"
+        },
+        {
+          "event": "incomingRequest"
+        },
+        {
+          "event": "incomingParent"
+        }
+      ],
+      "type": "trigger"
+    },
+    {
+      "name": "send_to_flex_1",
+      "properties": {
+        "attributes": "{\n\"view\": \"{{widgets.consulta_usuario.parsed.record.fields.View}}\"\n}",
+        "channel": "TC3a0cdeb263b9ab573a04ac30a9283e43",
+        "offset": {
+          "x": 510,
+          "y": 1440
+        },
+        "priority": "0",
+        "timeout": "3600",
+        "workflow": "WW9364788d2314909822e7b2e5d93919a0"
+      },
+      "transitions": [
+        {
+          "event": "callComplete"
+        },
+        {
+          "event": "failedToEnqueue"
+        },
+        {
+          "event": "callFailure"
+        }
+      ],
+      "type": "send-to-flex"
+    },
+    {
+      "name": "matricula",
+      "properties": {
+        "finish_on_key": "#",
+        "gather_language": "en",
+        "language": "pt-BR",
+        "loop": 1,
+        "number_of_digits": 6,
+        "offset": {
+          "x": 170,
+          "y": 470
+        },
+        "say": "Para poder te ajudar melhor, digite o número de sua matrícula.",
+        "speech_model": "default",
+        "speech_timeout": "5",
+        "stop_gather": true,
+        "timeout": 5,
+        "voice": "Google.pt-BR-Neural2-C"
+      },
+      "transitions": [
+        {
+          "event": "keypress",
+          "next": "consulta_usuario"
+        },
+        {
+          "event": "speech"
+        },
+        {
+          "event": "timeout"
+        }
+      ],
+      "type": "gather-input-on-call"
+    },
+    {
+      "name": "boasvindas",
+      "properties": {
+        "language": "pt-BR",
+        "loop": 1,
+        "offset": {
+          "x": 170,
+          "y": 200
+        },
+        "say": "Olá! Seja bem-vindo ao atendimento da Suzano.",
+        "voice": "Google.pt-BR-Neural2-C"
+      },
+      "transitions": [
+        {
+          "event": "audioComplete",
+          "next": "matricula"
+        }
+      ],
+      "type": "say-play"
+    },
+    {
+      "name": "consulta_usuario",
+      "properties": {
+        "environment_sid": "ZE9cf56bde5b4b1325a6fda68f4d79afc3",
+        "function_sid": "ZH56aacd94829cf8a8b1a1fba44d48bf3b",
+        "offset": {
+          "x": 150,
+          "y": 760
+        },
+        "parameters": [
+          {
+            "key": "tableName",
+            "value": "Usuários"
+          },
+          {
+            "key": "user_id",
+            "value": "{{widgets.matricula.Digits}}"
+          }
+        ],
+        "service_sid": "ZSbe56a6c2c8e5f6b32c8ead795bc85908",
+        "url": "https://mercado-pago-serverless-8115-prod.twil.io/create-payment"
+      },
+      "transitions": [
+        {
+          "event": "success",
+          "next": "usuario_existe"
+        },
+        {
+          "event": "fail"
+        }
+      ],
+      "type": "run-function"
+    },
+    {
+      "name": "usuario_existe",
+      "properties": {
+        "input": "{{widgets.consulta_usuario.parsed.record}}",
+        "offset": {
+          "x": 210,
+          "y": 1090
+        }
+      },
+      "transitions": [
+        {
+          "event": "noMatch",
+          "next": "usuario_nao_encontrado"
+        },
+        {
+          "conditions": [
+            {
+              "arguments": [
+                "{{widgets.consulta_usuario.parsed.record}}"
+              ],
+              "friendly_name": "consulta_usuario.parsed.record",
+              "type": "is_not_blank",
+              "value": "Is Not Blank"
+            }
+          ],
+          "event": "match",
+          "next": "send_to_flex_1"
+        }
+      ],
+      "type": "split-based-on"
+    },
+    {
+      "name": "usuario_nao_encontrado",
+      "properties": {
+        "language": "pt-BR",
+        "loop": 1,
+        "offset": {
+          "x": 140,
+          "y": 1450
+        },
+        "say": "Usuário não encontrado.",
+        "voice": "Google.pt-BR-Neural2-C"
+      },
+      "transitions": [
+        {
+          "event": "audioComplete",
+          "next": "matricula"
+        }
+      ],
+      "type": "say-play"
+    }
+  ]
+}
