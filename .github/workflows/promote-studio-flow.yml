@@ -77,12 +77,24 @@ jobs:
 
       - name: Promote to Target Flow
         run: |
+          echo "Promoting flow '${{ github.event.inputs.flow_name }}' to '${{ github.event.inputs.to_env }}'..."
+
           DEFINITION=$(jq -c . .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json)
 
-          curl -s -X POST "https://studio.twilio.com/v2/Flows/${{ github.event.inputs.to_flow_sid }}" \
+          RESPONSE=$(curl -s -w "%{http_code}" -o response.json -X POST \
+            "https://studio.twilio.com/v2/Flows/${{ github.event.inputs.to_flow_sid }}" \
             -u "$ACCOUNT_SID:$AUTH_TOKEN" \
             --data-urlencode "Definition=$DEFINITION" \
             --data-urlencode "Status=published" \
-            --data-urlencode "CommitMessage=${{ github.event.inputs.commit_message }}"
+            --data-urlencode "CommitMessage=${{ github.event.inputs.commit_message }}")
 
-          echo "✅ Promoted '${{ github.event.inputs.flow_name }}' to '${{ github.event.inputs.to_env }}'."
+          HTTP_STATUS=$(tail -c 3 <<< "$RESPONSE")
+
+          if [[ "$HTTP_STATUS" != "200" ]]; then
+            echo "❌ Flow promotion failed (HTTP $HTTP_STATUS)"
+            echo "Response:"
+            cat response.json
+            exit 1
+          fi
+
+          echo "✅ Successfully promoted '${{ github.event.inputs.flow_name }}' to '${{ github.event.inputs.to_env }}'."
