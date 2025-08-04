@@ -1,0 +1,79 @@
+name: Promote Twilio Studio Flow
+
+on:
+  workflow_dispatch:
+    inputs:
+      flow_name:
+        description: "Folder name of the flow under .studio/ (e.g. order-bot)"
+        required: true
+      from_env:
+        description: "Source environment (e.g. stage)"
+        required: true
+        default: "stage"
+      to_env:
+        description: "Target environment (e.g. prod)"
+        required: true
+        default: "prod"
+      from_flow_sid:
+        description: "Source Flow SID"
+        required: true
+      to_flow_sid:
+        description: "Target Flow SID"
+        required: true
+      commit_message:
+        description: "Promotion message"
+        required: true
+        default: "Promote to prod"
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    env:
+      ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+      AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install jq
+        run: sudo apt-get install jq
+
+      - name: Fetch Studio Flow from Source
+        run: |
+          curl -s -u "$ACCOUNT_SID:$AUTH_TOKEN" \
+            "https://studio.twilio.com/v2/Flows/${{ github.event.inputs.from_flow_sid }}" \
+            -o .studio/${{ github.event.inputs.flow_name }}/from-full.json
+
+          jq '.definition' .studio/${{ github.event.inputs.flow_name }}/from-full.json > \
+            .studio/${{ github.event.inputs.flow_name }}/from-definition.json
+
+      - name: Rewrite Function URLs for Target Env
+        run: |
+          FROM_ENV="${{ github.event.inputs.from_env }}"
+          TO_ENV="${{ github.event.inputs.to_env }}"
+
+          sed -E "s#https://${FROM_ENV}-([a-zA-Z0-9-]+)\.twil\.io#https://${TO_ENV}-\1.twil.io#g" \
+            .studio/${{ github.event.inputs.flow_name }}/from-definition.json \
+            > .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json
+
+      - name: Commit Definition (optional for audit)
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@users.noreply.github.com'
+
+          git add .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json
+          git commit -m "Promote ${{ github.event.inputs.flow_name }}: ${{ github.event.inputs.commit_message }}" || echo "Nothing to commit"
+          git push || echo "Nothing to push"
+
+      - name: Promote to Target Flow
+        run: |
+          DEFINITION=$(jq -c . .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json)
+
+          curl -s -X POST "https://studio.twilio.com/v2/Flows/${{ github.event.inputs.to_flow_sid }}" \
+            -u "$ACCOUNT_SID:$AUTH_TOKEN" \
+            --data-urlencode "Definition=$DEFINITION" \
+            --data-urlencode "CommitMessage=${{ github.event.inputs.commit_message }}"
+
+          echo "✅ Promoted '${{ github.event.inputs.flow_name }}' to '${{ github.event.inputs.to_env }}'."
