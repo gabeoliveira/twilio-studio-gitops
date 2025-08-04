@@ -63,7 +63,7 @@ jobs:
           issue-body: |
             Promotion requested for **${{ github.event.inputs.flow_name }}**
             Environment: `${{ github.event.inputs.from_env }} ➡️ ${{ github.event.inputs.to_env }}`
-            Triggered by: `${{ github.actor}`
+            Triggered by: `${{ github.actor }}`
 
             Comment `/approve` to proceed, `/deny` to cancel.
 
