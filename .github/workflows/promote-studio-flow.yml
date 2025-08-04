@@ -2,7 +2,6 @@ name: Promote Twilio Studio Flow
 
 permissions:
   contents: write
-  issues: write
 
 on:
   workflow_dispatch:
@@ -29,28 +28,36 @@ on:
         required: true
         default: "Promote to prod"
       replace_function_urls:
-        description: "Should function URLs be rewritten to match the target environment?"
+        description: "Rewrite Function URLs?"
         required: true
         default: "true"
       require_approval:
-        description: "Require manual approval before promoting?"
+        description: "Require manual approval?"
         required: true
         default: "false"
 
 jobs:
+  approve-first:
+    if: ${{ github.event.inputs.require_approval == 'true' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    outputs:
+      approved: ${{ steps.approval.outputs.outcome }}
+    steps:
+      - name: Await manual approval
+        id: approval
+        run: echo "🛑 Awaiting manual approval..."
+
   promote:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.require_approval == 'true' && 'production' || '' }}
-
+    needs: [approve-first]
+    if: ${{ github.event.inputs.require_approval == 'false' || needs.approve-first.result == 'success' }}
     env:
       ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
       AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
 
     steps:
-      - name: Require approval before proceeding (optional)
-        if: ${{ github.event.inputs.require_approval == 'true' }}
-        run: echo "✅ Manual approval granted for '${{ github.event.inputs.flow_name }}'. Proceeding with promotion..."
-
       - name: Checkout repo
         uses: actions/checkout@v3
 
