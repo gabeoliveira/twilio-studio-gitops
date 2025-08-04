@@ -54,7 +54,7 @@ jobs:
           FROM_ENV="${{ github.event.inputs.from_env }}"
           TO_ENV="${{ github.event.inputs.to_env }}"
 
-          sed -E "s#https://${FROM_ENV}-([a-zA-Z0-9-]+)\.twil\.io#https://${TO_ENV}-\1.twil.io#g" \
+          sed -E "s#https://([a-zA-Z0-9-]+)-${FROM_ENV}\.twil\.io#https://\1-${TO_ENV}.twil.io#g" \
             .studio/${{ github.event.inputs.flow_name }}/from-definition.json \
             > .studio/${{ github.event.inputs.flow_name }}/promoted-definition.json
 
