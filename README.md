@@ -39,3 +39,18 @@ The `.github/workflows/scheduled-promotion.yml` workflow runs on a cron schedule
 
 Once configured, the Scheduled Promotion workflow runs automatically at the specified time and promotes any flows with changes. Monitor the workflow under the **Actions** tab to see promotion results.
 
+### Required Approvals
+
+#### How it works
+
+The `Promote Twilio Studio Flow` workflow supports an optional approval gate using GitHub's native approvals. When the `require_approval` input is `true`, GitHub pauses the run and displays a **Review pending deployments** prompt. The workflow resumes only after a reviewer approves; a rejection stops the run.
+
+#### How to set it up
+
+1. When dispatching the workflow, set the `require_approval` input to `true` to enable the approval gate.
+2. Leave `require_approval` as `false` (the default) if no approval step is needed.
+
+#### How to use it
+
+With approval enabled, the workflow pauses and displays a **Review pending deployments** prompt in the Actions run. Reviewers approve or reject the run directly in the GitHub UI. Once approved, the flow promotion proceeds normally.
+
